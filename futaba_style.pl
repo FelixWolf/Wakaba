@@ -55,7 +55,7 @@ sub print_admin_login($)
 	my ($file)=@_;
 
 	print_page_header($file);
-	print_admin_header($file);
+	print_admin_header($file,"");
 
 	print $file '<div align="center">';
 	print $file '<form action="'.get_script_name().'" method="get">';
@@ -102,25 +102,27 @@ sub print_admin_post_panel($$@)
 
 	foreach $row (@posts)
 	{
-		my ($comment)=$$row{comment}=~m!^([^<]{1,40})!;
+		my ($comment)=$$row{comment}=~m!^([^<]{1,30})!;
+		my ($subject)=$$row{subject}=~m!^([^<]{1,30})!;
+		my ($name)=$$row{name}=~m!^([^<]{1,30})!;
 
 		print $file '<tr class="row'.$count.'">';
 
 		print $file '<td>' unless($$row{image});
 		print $file '<td rowspan="2">' if($$row{image});
 		print $file '<label>';
-		print $file '&gt;&gt; ' if($$row{parent});
 		print $file '<input type="checkbox" name="delete" value="'.$$row{num}.'" />';
-		print $file ' <big><b>'.$$row{num}.'</b></big>&nbsp;&nbsp;</td>';
+		print $file '&nbsp;&gt;&gt;' if($$row{parent});
+		print $file '&nbsp;<big><b>'.$$row{num}.'</b></big>&nbsp;&nbsp;</td>';
 		print $file '<td>'.make_date($$row{timestamp},2).'</td>';
-		print $file '<td>'.$$row{subject}.'</td>';
-		print $file '<td><b>'.$$row{name};
+		print $file '<td>'.$subject.'</td>';
+		print $file '<td><b>'.$name;
 		print $file TRIPKEY.$$row{trip} if($$row{trip});
 		print $file '</b></td>';
 		print $file '<td>'.$comment.'</td>';
 		print $file '<td>'.dec_to_dot($$row{ip});
 		print ' [&nbsp;<a href="'.get_script_name().'?admin='.$admin.'&action=deleteall&ip='.$$row{ip}.'">'.S_MPDELETEALL.'</a>&nbsp;]';
-		print ' [&nbsp;<a href="'.get_script_name().'?admin='.$admin.'&action=addip&type=ipban&ip='.$$row{ip}.'">'.S_MPBAN.'</a>&nbsp;]</td>';
+		print '&nbsp;[&nbsp;<a href="'.get_script_name().'?admin='.$admin.'&action=addip&type=ipban&ip='.$$row{ip}.'">'.S_MPBAN.'</a>&nbsp;]</td>';
 		print $file '</tr>';
 
 		if($$row{image})
@@ -278,10 +280,13 @@ sub print_admin_header($$)
 	my ($file,$admin)=@_;
 
 	print $file '[<a href="'.expand_filename(HTML_SELF).'">'.S_MANARET.'</a>]';
-	print $file ' [<a href="'.get_script_name().'?action=mpanel&admin='.$admin.'">'.S_MANAPANEL.'</a>]';
-	print $file ' [<a href="'.get_script_name().'?action=bans&admin='.$admin.'">'.S_MANABANS.'</a>]';
-	print $file ' [<a href="'.get_script_name().'?action=mpost&admin='.$admin.'">'.S_MANAPOST.'</a>]';
-	print $file ' [<a href="'.get_script_name().'?action=rebuild&admin='.$admin.'">'.S_MANAREBUILD.'</a>]';
+	if($admin)
+	{
+		print $file ' [<a href="'.get_script_name().'?action=mpanel&admin='.$admin.'">'.S_MANAPANEL.'</a>]';
+		print $file ' [<a href="'.get_script_name().'?action=bans&admin='.$admin.'">'.S_MANABANS.'</a>]';
+		print $file ' [<a href="'.get_script_name().'?action=mpost&admin='.$admin.'">'.S_MANAPOST.'</a>]';
+		print $file ' [<a href="'.get_script_name().'?action=rebuild&admin='.$admin.'">'.S_MANAREBUILD.'</a>]';
+	}
 
 	print $file '<div class="passvalid">'.S_MANAMODE.'</div><br />';
 }
@@ -328,14 +333,16 @@ sub print_page_header($)
 	print $file '<script src="'.expand_filename(JS_FILE).'"></script>'; # could be better
 	print $file '</head><body>';
 
+	print $file S_HEAD;
+
 	print $file '<div class="adminbar">';
 	print $file '[<a href="'.expand_filename(HOME).'" target="_top">'.S_HOME.'</a>]';
 	print $file ' [<a href="'.get_script_name().'?action=admin">'.S_ADMIN.'</a>]';
 	print $file '</div>';
 
 	print $file '<div class="logo">';
-	print $file '<img src="'.TITLEIMG.'" alt="'.expand_filename(TITLE).'" />' if(SHOWTITLEIMG==1);
-	print $file '<img src="'.TITLEIMG.'" onclick="this.src=this.src;" alt="'.TITLE.'" />' if(SHOWTITLEIMG==2);
+	print $file '<img src="'.expand_filename(TITLEIMG).'" alt="'.TITLE.'" />' if(SHOWTITLEIMG==1);
+	print $file '<img src="'.expand_filename(TITLEIMG).'" onclick="this.src=this.src;" alt="'.TITLE.'" />' if(SHOWTITLEIMG==2);
 	print $file '<br />' if(SHOWTITLEIMG and SHOWTITLETXT);
 	print $file TITLE if(SHOWTITLETXT);
 	print $file '</div><hr />';
@@ -345,17 +352,16 @@ sub print_page_footer($)
 {
 	my ($file)=@_;
 
-	print $file '<div class="footer">'.S_FOOT.'</div>';
+	print $file S_FOOT;
 	print $file '</body></html>';
 }
 
 sub print_posting_form($$$)
 {
 	my ($file,$parent,$admin)=@_;
-	my ($image_inp,$textonly_inp,$captcha_inp);
+	my ($image_inp,$textonly_inp);
 
-
-	if($admin) { $image_inp=$textonly_inp=1; $captcha_inp=0; }
+	if($admin) { $image_inp=$textonly_inp=1; }
 	else
 	{
 		if($parent)
@@ -369,10 +375,7 @@ sub print_posting_form($$$)
 			$image_inp=1 if(ALLOW_IMAGES);
 			$textonly_inp=1 if(ALLOW_IMAGES and ALLOW_TEXTONLY);
 		}
-
-		$captcha_inp=ENABLE_CAPTCHA;
 	}
-
 
 	print $file '<div class="postarea" align="center">';
 	print $file '<form name="postform" action="'.get_script_name().'" method="post" enctype="multipart/form-data">';
@@ -397,7 +400,7 @@ sub print_posting_form($$$)
 		print $file '<input type="hidden" name="nofile" value="1" />';
 	}
 
-	if($captcha_inp)
+	if(ENABLE_CAPTCHA)
 	{
 		my $key=get_captcha_key($parent);
 
